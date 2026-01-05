@@ -13,6 +13,8 @@ The package is automatically added to your project dependencies when you run `bv
 
 ## Usage
 
+**Note:** The runtime SDK checks for the `BV_SDK_RUN` environment variable to prevent accidental usage outside of a controlled runner context. If running scripts manually (e.g. `python main.py`), you must set `BV_SDK_RUN=1`.
+
 ```python
 from bv.runtime import assets, queues, log_message, LogLevel
 
