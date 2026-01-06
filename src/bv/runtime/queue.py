@@ -1,8 +1,23 @@
 from __future__ import annotations
 
 from typing import Any
+from enum import Enum
 
 from bv.runtime._guard import require_bv_run
+
+
+class Status(Enum):
+    DONE = "DONE"
+    FAILED = "FAILED"
+    ABANDONED = "ABANDONED"
+
+
+class ErrorType(Enum):
+    APPLICATION = "APPLICATION"
+    BUSINESS = "BUSINESS"
+
+
+__all__ = ["add", "get", "set_status", "Status", "ErrorType"]
 
 
 def add(
@@ -70,19 +85,55 @@ def get(queue_name: str) -> "QueueItem | None":
 
 def set_status(
     item_id: str,
-    status: str,
+    status: Status,
     *,
-    result: dict | None = None,
-    error: str | None = None,
+    output: dict | None = None,
+    error_type: ErrorType | None = None,
+    error_reason: str | None = None,
 ) -> None:
-    """Update the status/result/error for a queue item."""
+    """Update queue item status with explicit, validated contract.
+
+    Rules:
+    - DONE: error_type and error_reason must be None.
+    - FAILED: error_type and error_reason are required.
+    - ABANDONED: error_reason is required (error_type optional).
+    - BUSINESS errors are terminal.
+    """
     require_bv_run()
     from bv.runtime.client import OrchestratorClient
 
+    if not isinstance(status, Status):
+        raise TypeError("status must be a Status enum value")
+    if error_type is not None and not isinstance(error_type, ErrorType):
+        raise TypeError("error_type must be an ErrorType enum value or None")
+
+    # Validate state-specific contract
+    if status is Status.DONE:
+        if error_type is not None:
+            raise ValueError("DONE status cannot include error_type")
+        if error_reason is not None:
+            raise ValueError("DONE status cannot include error_reason")
+    elif status is Status.FAILED:
+        if error_type is None:
+            raise ValueError("FAILED status requires error_type")
+        if error_reason is None:
+            raise ValueError("FAILED status requires error_reason")
+    elif status is Status.ABANDONED:
+        if error_reason is None:
+            raise ValueError("ABANDONED status requires error_reason")
+    else:  # pragma: no cover - future-proof guard
+        raise ValueError(f"Unsupported status {status}")
+
     client = OrchestratorClient()
     body = {
-        "status": status,
-        "result": result,
-        "error_message": error,
+        "status": status.value,
+        # Backend still expects 'result' and 'error_message'; public API uses explicit names.
+        "result": output,
+        "error_message": error_reason,
     }
+    if error_type is not None:
+        body["error_type"] = error_type.value
+        if error_type is ErrorType.BUSINESS:
+            body["terminal"] = True
+
     client.request("PUT", f"/api/queue-items/{item_id}/status", json=body)
