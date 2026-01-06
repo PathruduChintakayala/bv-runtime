@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
-from enum import Enum
+from enum import Enum, IntEnum
 
 from bv.runtime._guard import require_bv_run
 
@@ -17,15 +17,24 @@ class ErrorType(Enum):
     BUSINESS = "BUSINESS"
 
 
-__all__ = ["add", "get", "set_status", "Status", "ErrorType"]
+class Priority(IntEnum):
+    """Priority levels mapped to backend integer values (runtime-only helper)."""
+
+    LOW = 0
+    NORMAL = 1
+    MEDIUM = 2
+    HIGH = 3
+
+
+__all__ = ["add", "get", "set_status", "Status", "ErrorType", "Priority"]
 
 
 def add(
     queue_name: str,
-    *,
     content: Any,
+    *,
     reference: str | None = None,
-    priority: int = 0,
+    priority: Priority = Priority.NORMAL,
 ) -> "QueueItem":
     """Enqueue an item and return a typed QueueItem.
 
@@ -36,11 +45,15 @@ def add(
     from bv.runtime.queue_item import QueueItem
 
     client = OrchestratorClient()
+    if not isinstance(priority, Priority):
+        raise TypeError("priority must be a Priority enum value (e.g., Priority.NORMAL)")
+
     body = {
         "queue_name": queue_name,
         "payload": content,  # backend expects 'payload'
         "reference": reference,
-        "priority": priority,
+        # Priority is an IntEnum; send its integer value to the backend API.
+        "priority": int(priority),
     }
     resp = client.request("POST", "/api/queue-items/add", json=body)
     data = resp.data

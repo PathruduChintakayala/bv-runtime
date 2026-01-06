@@ -24,7 +24,7 @@ class QueueItem:
         item_id: str,
         queue_name: str,
         reference: str | None,
-        priority: int | None,
+        priority: Any,
         retries: int,
         content: Any,
     ) -> None:
@@ -32,11 +32,7 @@ class QueueItem:
         object.__setattr__(self, "_id", str(item_id))
         object.__setattr__(self, "_queue_name", str(queue_name))
         object.__setattr__(self, "_reference", None if reference is None else str(reference))
-        try:
-            priority_val = int(priority) if priority is not None else None
-        except Exception:
-            priority_val = None
-        object.__setattr__(self, "_priority", priority_val)
+        object.__setattr__(self, "_priority", self._coerce_priority(priority))
         try:
             retries_val = int(retries)
         except Exception:
@@ -60,7 +56,7 @@ class QueueItem:
         return self._reference
 
     @property
-    def priority(self) -> int | None:
+    def priority(self):
         return self._priority
 
     @property
@@ -104,3 +100,21 @@ class QueueItem:
             f"content={self._content!r}"
             ")"
         )
+
+    @staticmethod
+    def _coerce_priority(raw: Any):
+        """Convert backend integer priority to the Priority enum when available."""
+        if raw is None:
+            return None
+        try:
+            from bv.runtime.queue import Priority  # Local import to avoid circular at module load
+
+            if isinstance(raw, Priority):
+                return raw
+            return Priority(int(raw))
+        except Exception:
+            # Preserve the raw value if it cannot be coerced; avoids raising during deserialization
+            try:
+                return int(raw)
+            except Exception:
+                return raw
