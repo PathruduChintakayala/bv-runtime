@@ -58,15 +58,39 @@ def add_queue_item(queue_name: str, payload: dict, reference: str | None = None)
     return str(resp.data.get("id") or "")
 
 
-def get_queue_item(queue_name: str) -> dict | None:
-    """Fetch the next available item from a queue and mark it as IN_PROGRESS."""
+def get_queue_item(queue_name: str) -> "QueueItem | None":
+    """Fetch the next available item from a queue and mark it as IN_PROGRESS.
+
+    Returns None when the queue is empty; otherwise a typed, immutable QueueItem.
+    """
     require_bv_run()
     from bv.runtime.client import OrchestratorClient
+    from bv.runtime.queue_item import QueueItem
+
     client = OrchestratorClient()
     resp = client.request("GET", "/api/queue-items/next", params={"queue_name": queue_name})
-    if resp.data is None:
+    data = resp.data
+    if data is None:
         return None
-    return dict(resp.data)
+    if not isinstance(data, dict):
+        return None
+
+    # Map backend fields to the typed object; payload stays parsed as provided.
+    item_id = data.get("id")
+    queue_name_value = data.get("queue_name") or queue_name
+    reference = data.get("reference") if data.get("reference") is not None else None
+    priority = data.get("priority")
+    retries = data.get("retries", 0)
+    content = data.get("payload")
+
+    return QueueItem(
+        item_id=item_id,
+        queue_name=queue_name_value,
+        reference=reference,
+        priority=priority,
+        retries=retries,
+        content=content,
+    )
 
 
 def set_queue_item_status(
