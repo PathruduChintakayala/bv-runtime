@@ -85,7 +85,8 @@ item = queue.add(
 - `reference` is optional metadata for downstream correlation.
 - Returns a `QueueItem` with retries=0 and attempt=1.
 
-### 4.3 Dequeue (queue.get)
+**Note:** The runtime SDK checks for the `BV_SDK_RUN` environment variable to prevent accidental usage outside of a controlled runner context. If running scripts manually (e.g. `python main.py`), you must set `BV_SDK_RUN=1`.
+
 ```python
 item = queue.get("orders")
 
