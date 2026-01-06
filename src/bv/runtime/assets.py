@@ -34,16 +34,11 @@ def get_asset(name: str) -> str | int | bool:
     return str(val or "")
 
 
-def get_secret(name: str) -> str:
-    """Fetch a secret asset and return its raw encrypted value."""
+def get_secret(name: str) -> "SecretHandle":
+    """Return a lazy secret handle; call .value() to resolve plaintext on demand."""
     require_bv_run()
-    from bv.runtime.client import OrchestratorClient
-    client = OrchestratorClient()
-    resp = client.request("GET", f"/api/assets/secret/{name}")
-    data = resp.data
-    if isinstance(data, dict):
-        return str(data.get("value") or "")
-    return str(data or "")
+    from bv.runtime.secret import SecretHandle
+    return SecretHandle(name)
 
 
 def get_credential(name: str) -> dict[str, str]:

@@ -103,3 +103,23 @@ class OrchestratorClient:
 
         return OrchestratorResponse(status_code=resp.status_code, data=data_out)
 
+    def resolve_secret(self, name: str) -> str:
+        """Resolve a secret's plaintext value via the runtime endpoint."""
+        resp = self.request("POST", "/api/runtime/secrets/resolve", json={"name": name})
+        data_out = resp.data
+
+        if isinstance(data_out, dict):
+            if "value" in data_out:
+                return str(data_out.get("value") or "")
+            # Fallback: allow orchestrator to return raw string field name
+            if len(data_out) == 1:
+                try:
+                    return str(next(iter(data_out.values())) or "")
+                except Exception:
+                    pass
+
+        if isinstance(data_out, str):
+            return data_out
+
+        return str(data_out or "")
+
