@@ -41,17 +41,18 @@ def get_secret(name: str) -> "SecretHandle":
     return SecretHandle(name)
 
 
-def get_credential(name: str) -> dict[str, str]:
-    """Fetch a credential asset and return a dict with username and encrypted password."""
+def get_credential(name: str) -> "CredentialHandle":
+    """Return a credential handle exposing username and a lazy password SecretHandle."""
     require_bv_run()
     from bv.runtime.client import OrchestratorClient
+    from bv.runtime.credential import CredentialHandle
+    from bv.runtime.secret import SecretHandle
+
     client = OrchestratorClient()
-    resp = client.request("GET", f"/api/assets/credential/{name}")
-    data = resp.data
-    return {
-        "username": str(data.get("username") or ""),
-        "password": str(data.get("password") or "")  # encrypted
-    }
+    meta = client.get_credential_metadata(name)
+    username = str(meta.get("username") if isinstance(meta, dict) else "")
+    password_handle = SecretHandle(f"{name}.password")
+    return CredentialHandle(name, username, password_handle)
 
 
 def set_asset(name: str, value: str | int | bool) -> None:

@@ -123,3 +123,16 @@ class OrchestratorClient:
 
         return str(data_out or "")
 
+    def get_credential_metadata(self, name: str) -> dict[str, str]:
+        """Fetch credential metadata (username only) without resolving the password."""
+        resp = self.request("GET", f"/api/runtime/credentials/{name}")
+        data_out = resp.data
+
+        username = ""
+        if isinstance(data_out, dict):
+            username = str(data_out.get("username") or "")
+        else:
+            username = str(data_out or "")
+
+        return {"username": username}
+
